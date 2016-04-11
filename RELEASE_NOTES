@@ -1,3 +1,6 @@
+2.74
+  - @UseStringTemplate3StatementLocator now caches created locators
+
 2.73
   - Allow clearing of bindings in SQLStatement
   - (finally!) parse Postgres CAST syntax 'value::type' properly in colon
