@@ -17,7 +17,6 @@ import org.skife.jdbi.v2.tweak.Argument;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Types;
 
 class ObjectArgument implements Argument
 {
@@ -35,7 +34,8 @@ class ObjectArgument implements Argument
             statement.setObject(position, value);
         }
         else {
-            statement.setNull(position, Types.NULL);
+            int sqlType = statement.getParameterMetaData().getParameterType(position);
+            statement.setNull(position, sqlType);
         }
     }
 

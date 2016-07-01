@@ -28,26 +28,26 @@ import javax.sql.DataSource;
 
 public class DerbyHelper
 {
-    public static final String DERBY_SYSTEM_HOME = "target/test-db";
+    public static final String DERBY_SYSTEM_HOME = "target";
 
     private Driver driver;
     private boolean running = false;
-    private DataSource dataSource;
+    private EmbeddedDataSource dataSource;
 
     private final String dbName;
 
     public DerbyHelper()
     {
-        this.dbName = "testing-" + UUID.randomUUID().toString();
+        this.dbName = "memory:testing-" + UUID.randomUUID().toString();
     }
 
     public void start() throws SQLException, IOException
     {
         if (!running)
         {
+            // Make derby.log end up in the 'target'-directory.
+            // Could also suppress the log completely.
             System.setProperty("derby.system.home", DERBY_SYSTEM_HOME);
-            File db = new File("target/test-db");
-            db.mkdirs();
 
             EmbeddedDataSource newDataSource = new EmbeddedDataSource();
             newDataSource.setCreateDatabase("create");
@@ -64,32 +64,17 @@ public class DerbyHelper
 
     public void stop() throws SQLException
     {
-        final Connection conn = getConnection();
-        final Statement delete = conn.createStatement();
-        try
-        {
-            delete.execute("delete from something");
-        }
-        catch (SQLException e)
-        {
-            // may not exist
-        }
-        delete.close();
-        final String[] drops = {"drop table something",
-                                "drop function do_it",
-                                "drop procedure INSERTSOMETHING"};
-        for (String drop : drops)
-        {
-            final Statement stmt = conn.createStatement();
-            try
-            {
-                stmt.execute(drop);
-            }
-            catch (Exception e)
-            {
-                // may not exist
-            }
 
+        // Drop the in-memory database.
+        dataSource.setCreateDatabase(null);
+        dataSource.setConnectionAttributes("drop=true");
+        try {
+            dataSource.getConnection();
+            if (true) throw new IllegalStateException("failed to drop Derby database");
+        } catch (SQLException sqle) {
+            if (!"08006".equals(sqle.getSQLState())) {
+                throw sqle;
+            }
         }
     }
 

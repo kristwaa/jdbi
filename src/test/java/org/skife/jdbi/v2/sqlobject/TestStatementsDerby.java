@@ -13,47 +13,36 @@
  */
 package org.skife.jdbi.v2.sqlobject;
 
-import org.h2.jdbcx.JdbcDataSource;
-import org.junit.After;
-import org.junit.Before;
+import java.util.List;
 import org.junit.Test;
-import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.sqlobject.mixins.CloseMe;
 
-import java.util.UUID;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import org.skife.jdbi.v2.DBITestCase;
 
-public class TestStatements
+public class TestStatementsDerby
+        extends DBITestCase
 {
-    private DBI dbi;
     private Handle handle;
 
-    @Before
-    public void setUp() throws Exception
+    @Override
+    protected void doSetUp() throws Exception
     {
-        JdbcDataSource ds = new JdbcDataSource();
-        ds.setURL("jdbc:h2:mem:" + UUID.randomUUID());
-        dbi = new DBI(ds);
-        handle = dbi.open();
-
-        handle.execute("create table something (id int primary key, name varchar(100))");
-
+        handle = openHandle();
     }
 
-    @After
-    public void tearDown() throws Exception
+    @Override
+    protected void doTearDown() throws Exception
     {
-        handle.execute("drop table something");
         handle.close();
     }
 
     @Test
     public void testInsert() throws Exception
     {
-        Inserter i = SqlObjectBuilder.open(dbi, Inserter.class);
+        Inserter i = SqlObjectBuilder.attach(handle, Inserter.class);
 
         // this is what is under test here
         int rows_affected = i.insert(2, "Diego");
@@ -69,7 +58,7 @@ public class TestStatements
     @Test
     public void testInsertWithNull() throws Exception
     {
-        Inserter i = SqlObjectBuilder.open(dbi, Inserter.class);
+        Inserter i = SqlObjectBuilder.attach(handle, Inserter.class);
 
         // this is what is under test here
         int rows_affected = i.insert(2, null);
@@ -83,9 +72,29 @@ public class TestStatements
     }
 
     @Test
+    public void testValuesWithNull() throws Exception
+    {
+        Inserter i = SqlObjectBuilder.attach(handle, Inserter.class);
+        i.insert(1, "test1");
+        i.insert(2, "test2");
+
+        // this is what is under test here
+        List<Integer> values1 = i.values(null);
+        assertTrue(values1.isEmpty());
+
+        List<Integer> values2 = i.values(2);
+        assertEquals(2, values2.size());
+
+        List<Integer> values3 = i.values(1);
+        assertTrue(values3.isEmpty());
+
+        i.close();
+    }
+
+    @Test
     public void testInsertWithVoidReturn() throws Exception
     {
-        Inserter i = SqlObjectBuilder.open(dbi, Inserter.class);
+        Inserter i = SqlObjectBuilder.attach(handle, Inserter.class);
 
         // this is what is under test here
         i.insertWithVoidReturn(2, "Diego");
@@ -97,13 +106,6 @@ public class TestStatements
         i.close();
     }
 
-    @Test
-    public void testDoubleArgumentBind() throws Exception
-    {
-        Doubler d = dbi.open(Doubler.class);
-        assertTrue(d.doubleTest("wooooot"));
-    }
-
     public static interface Inserter extends CloseMe
     {
         @SqlUpdate("insert into something (id, name) values (:id, :name)")
@@ -111,11 +113,8 @@ public class TestStatements
 
         @SqlUpdate("insert into something (id, name) values (:id, :name)")
         public void insertWithVoidReturn(@Bind("id") long id, @Bind("name") String name);
-    }
 
-    public interface Doubler
-    {
-        @SqlQuery("select :test = :test")
-        boolean doubleTest(@Bind("test") String test);
+        @SqlQuery("select id from something where :it <> 1")
+        public List<Integer> values(@Bind Object it);
     }
 }
